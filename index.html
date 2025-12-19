@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Gitデプロイメーカー｜ 爆速コマンド生成</title>
+    <meta name="description" content="GitHubへの初回プッシュに必要な一連のコマンドを生成。設定はブラウザ完結、トークン埋め込みにも対応。">
+
+    <link rel="icon" type="image/png" href="images/favicon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        textarea,
+        input {
+            transition: border-color 0.2s ease, shadow 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .result-area {
+            background-color: #f8fafc;
+        }
+
+        #text-output {
+            color: #b15c54;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 font-sans text-slate-900 selection:bg-blue-100">
+
+    <div id="app" class="max-w-2xl mx-auto">
+        <header class="mb-10 text-center">
+            <a href="#" class="inline-flex flex-col items-center group">
+                <h1
+                    class="text-3xl font-extrabold text-slate-800 flex items-center gap-3 group-hover:text-blue-600 transition-colors">
+                    <i data-lucide="zap" class="text-yellow-500 fill-yellow-500"></i> Gitデプロイメーカー
+                </h1>
+                <p class="mt-2 text-slate-400 text-sm font-medium tracking-wide">
+                    GIT DEPLOY COMMAND GENERATOR
+                </p>
+            </a>
+            <p class="mt-6 text-slate-600 text-sm leading-relaxed">
+                GitHubへの初回プッシュに必要なコマンドを一括生成します。<br class="hidden md:block">
+                データはサーバーへ送信されず、ブラウザ上で安全に処理されます。
+            </p>
+        </header>
+
+        <div class="animate-in space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">GitHub
+                        Username</label>
+                    <input type="text" id="username" placeholder="karaagenomuranaoya" oninput="updateSettings()"
+                        class="w-full bg-white rounded-xl border border-slate-200 p-3 focus:outline-none focus:border-blue-300 text-slate-700 text-sm">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Repo Name</label>
+                    <input type="text" id="repo" placeholder="my-awesome-tool" oninput="generate()"
+                        class="w-full bg-white rounded-xl border border-slate-200 p-3 focus:outline-none focus:border-blue-300 text-slate-700 text-sm">
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="shield-alert" class="text-amber-500" size="20"></i>
+                        <div>
+                            <p class="text-sm font-bold text-slate-700">トークンを埋め込む <span
+                                    class="text-red-500 text-[10px] ml-1">（非推奨）</span></p>
+                            <p class="text-[10px] text-slate-400">※PCの設定ファイルに合言葉が保存されます。自分専用PC以外ではOFFにしてください。</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="use-token" class="sr-only peer" onchange="updateSettings()">
+                        <div
+                            class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                        </div>
+                    </label>
+                </div>
+
+                <div id="token-input-area" class="mt-4 pt-4 border-t border-slate-50 hidden">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Personal Access Token
+                        (PAT)</label>
+                    <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxx" oninput="generate()"
+                        class="w-full bg-slate-50 rounded-xl border border-slate-200 p-3 focus:outline-none focus:border-blue-300 text-slate-700 text-sm mt-1">
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Generated
+                    Commands</label>
+                <div class="result-area rounded-2xl border border-dashed border-slate-300 p-5 transition-all">
+                    <textarea id="text-output"
+                        class="w-full min-h-[260px] bg-transparent focus:outline-none font-mono text-sm leading-relaxed placeholder:text-slate-300 resize-none"
+                        placeholder="情報を入力するとコマンドが表示されます..." readonly></textarea>
+                </div>
+            </div>
+
+            <button id="copy-btn" onclick="copyResult()"
+                class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
+                <i data-lucide="copy" size="20"></i> コマンドをコピー
+            </button>
+        </div>
+
+        <footer class="mt-24 border-t border-slate-200 pt-12 pb-16 text-slate-500 text-[11px] leading-relaxed">
+            <div class="flex flex-col items-center mb-12">
+                <a href="#" class="group flex flex-col items-center transition-transform hover:-translate-y-1">
+                    <div class="flex items-center gap-3 mb-4">
+                        <img src="images/favicon.png" alt="NomuTools Logo"
+                            class="w-8 h-8 rounded-lg shadow-sm grayscale group-hover:grayscale-0 transition-all duration-500">
+                        <div class="text-left">
+                            <span
+                                class="block text-slate-800 font-bold text-sm tracking-tighter group-hover:text-blue-600 transition-colors">NomuTools</span>
+                            <span class="block text-slate-400 text-[10px]">Simple & Lightweight Utilities.</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-left border-t border-slate-100 pt-8">
+                <div>
+                    <h2 class="font-bold text-slate-700 mb-2 italic tracking-wider">Security</h2>
+                    <p class="text-red-400 font-bold mb-2">個人情報や暗証番号は絶対に入力しないでください。</p>
+                    <p>ユーザー名と設定状態はLocalStorageに保存されます。トークンは保存されません。</p>
+                </div>
+                <div>
+                    <h2 class="font-bold text-slate-700 mb-2 italic tracking-wider">Support</h2>
+                    <p>本ツールの利用により生じた損害について、開発者は一切の責任を負いません。</p>
+                </div>
+            </div>
+
+            <div class="mt-12 text-center opacity-30 tracking-widest uppercase font-light">
+                &copy; 2025 NomuTools
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        const userKey = 'nomutools-git-user';
+        const tokenOptionKey = 'nomutools-git-use-token';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem(userKey);
+            const savedOption = localStorage.getItem(tokenOptionKey) === 'true';
+
+            if (savedUser) document.getElementById('username').value = savedUser;
+            document.getElementById('use-token').checked = savedOption;
+
+            toggleTokenArea(savedOption);
+            generate();
+        });
+
+        function updateSettings() {
+            const user = document.getElementById('username').value;
+            const useToken = document.getElementById('use-token').checked;
+
+            localStorage.setItem(userKey, user);
+            localStorage.setItem(tokenOptionKey, useToken);
+
+            toggleTokenArea(useToken);
+            generate();
+        }
+
+        function toggleTokenArea(show) {
+            const area = document.getElementById('token-input-area');
+            if (show) {
+                area.classList.remove('hidden');
+            } else {
+                area.classList.add('hidden');
+            }
+        }
+
+        function generate() {
+            const user = document.getElementById('username').value || '[username]';
+            const repo = document.getElementById('repo').value || '[repo-name]';
+            const token = document.getElementById('token').value || '[token]';
+            const useToken = document.getElementById('use-token').checked;
+            const outputEl = document.getElementById('text-output');
+
+            const baseUrl = `github.com/${user}/${repo}.git`;
+            const remoteUrl = useToken ? `https://${user}:${token}@${baseUrl}` : `https://${baseUrl}`;
+
+            const commands = [
+                `git init`,
+                `git remote add origin https://${baseUrl}`,
+                `git add .`,
+                `git status`,
+                `git commit -m "Initial Commit"`,
+                `git remote -v`,
+                `git remote set-url origin ${remoteUrl}`,
+                `git push -u origin main`
+            ].join('\n');
+
+            outputEl.value = commands;
+        }
+
+        async function copyResult() {
+            const outputEl = document.getElementById('text-output');
+            if (!outputEl.value) return;
+
+            try {
+                await navigator.clipboard.writeText(outputEl.value);
+                const btn = document.getElementById('copy-btn');
+                const originalInner = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="text-green-400"></i> コピーしました！';
+                lucide.createIcons();
+                setTimeout(() => {
+                    btn.innerHTML = originalInner;
+                    lucide.createIcons();
+                }, 1500);
+            } catch (err) {
+                console.error('Copy failed', err);
+            }
+        }
+    </script>
+</body>
+
+</html>
